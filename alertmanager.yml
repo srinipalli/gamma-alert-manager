@@ -1,0 +1,102 @@
+global:
+  resolve_timeout: 5m
+
+# The main route block should define the default receiver and then
+# any specific sub-routes. There should only be ONE top-level 'route' block.
+route:
+  group_by: ['alertname', 'env', 'server_name', 'issue_type']
+  group_wait: 10s
+  group_interval: 5m
+  repeat_interval: 3h
+  receiver: 'default-email' # This is the default receiver if no specific route matches
+
+  # Sub-routes for specific conditions
+  routes:
+  - match:
+      severity: 'critical'
+    receiver: 'ui-webhook'
+    continue: true # Important: continue processing to other routes/default receiver
+
+  - match:
+      severity: 'warning'
+    receiver: 'ui-webhook'
+    continue: true
+
+  - match:
+      severity: 'info'
+    receiver: 'ui-webhook'
+    continue: true
+
+  # Optional: If you want *all* alerts to also go to the UI, regardless of severity,
+  # you can add a final catch-all route that leads to the UI webhook.
+  # This route should typically not have a 'match' if it's truly a catch-all for anything
+  # not handled by previous specific routes. If 'continue' is true, it passes it on.
+  # If you want everything to go to the UI AND the default email, then the above
+  # specific severity matches with `continue: true` are good enough, and the
+  # 'default-email' as the main 'receiver' handles the rest.
+  # If the intention is literally 'everything goes to UI-webhook as well', then:
+  # - match_re:
+  #     severity: '.*' # Matches any severity
+  #   receiver: 'ui-webhook'
+  #   continue: true
+
+
+receivers:
+  - name: 'default-email'
+    email_configs:
+      - to: 'vishal.vivek.10039@gmail.com'
+        send_resolved: true
+        from: 'alerts@yourdomain.com'
+        smarthost: 'sandbox.smtp.mailtrap.io:587'
+        auth_username: '1f04ac55d747d0'
+        auth_password: '697f5b39c11b25'
+        require_tls: true
+        text: "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.description }}\nLabels: {{ .Labels.env | title }} - {{ .Labels.server_name }}\nSeverity: {{ .Labels.severity | title }}\nStatus: {{ .Status | title }}\n{{ end }}"
+        html: |
+          <!DOCTYPE html>
+          <html>
+          <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; }
+            .alert-container { border: 1px solid #ddd; padding: 15px; margin-bottom: 20px; border-radius: 5px; background-color: #f9f9f9; }
+            .alert-header { font-size: 1.2em; font-weight: bold; color: #d9534f; margin-bottom: 10px; }
+            .alert-resolved .alert-header { color: #5cb85c; }
+            .alert-details { margin-bottom: 10px; }
+            .alert-details strong { display: inline-block; width: 100px; }
+            .alert-footer { font-size: 0.9em; color: #777; }
+          </style>
+          </head>
+          <body>
+            <h2>Prometheus Alert Notification</h2>
+            {{ range .Alerts }}
+            <div class="alert-container {{ if eq .Status "resolved" }}alert-resolved{{ end }}">
+              <div class="alert-header">
+                {{ if eq .Status "firing" }}
+                  [FIRING] {{ .Annotations.summary | default .Labels.alertname }}
+                {{ else }}
+                  [RESOLVED] {{ .Annotations.summary | default .Labels.alertname }}
+                {{ end }}
+              </div>
+              <div class="alert-details">
+                <p><strong>Description:</strong> {{ .Annotations.description | default "No description provided." }}</p>
+                <p><strong>Environment:</strong> {{ .Labels.env | title | default "N/A" }}</p>
+                <p><strong>Server:</strong> {{ .Labels.server_name | default "N/A" }}</p>
+                <p><strong>Severity:</strong> <span style="text-transform: capitalize;">{{ .Labels.severity | default "N/A" }}</span></p>
+                <p><strong>Alert Type:</strong> {{ .Labels.alert_type | default "N/A" }}</p>
+                {{ if .Labels.issue_type }}<p><strong>Issue Type:</strong> {{ .Labels.issue_type }}</p>{{ end }}
+                <p><strong>Value:</strong> {{ .Value | printf "%.2f" }}</p>
+                <p><strong>Status:</strong> <span style="text-transform: capitalize;">{{ .Status }}</span></p>
+                <p><strong>Starts At:</strong> {{ .StartsAt.Local }}</p>
+                {{ if .EndsAt }}<p><strong>Ends At:</b> {{ .EndsAt.Local }}</p>{{ end }}
+              </div>
+              <div class="alert-footer">
+                <a href="{{ .GeneratorURL }}">View in Prometheus</a>
+              </div>
+            </div>
+            {{ end }}
+          </body>
+          </html>
+
+  - name: 'ui-webhook'
+    webhook_configs:
+      - url: 'http://localhost:8000/api/alerts/webhook'

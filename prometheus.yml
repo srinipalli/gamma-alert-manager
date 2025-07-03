@@ -1,0 +1,27 @@
+# prometheus.yml
+global:
+  scrape_interval: 15s # How frequently Prometheus scrapes targets
+  evaluation_interval: 15s # How frequently Prometheus evaluates rules
+
+# Alerting configuration: Tells Prometheus where to send alerts
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['localhost:9093'] # This is where Alertmanager will be listening
+
+# Rule files for alerts
+rule_files:
+  - "alert.rules.yml" # Make sure this path is correct, should be 'alert.rules.yml'
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090'] # Prometheus itself
+
+  - job_name: 'mongo_exporter'
+    # Replace 'localhost:9100' with the actual IP address or hostname
+    # where your mongo_exporter.py script is running.
+    static_configs:
+      - targets: ['localhost:9100'] # Exporter listens on port 9100
+    # Make sure this scrape_interval matches SCRAPE_INTERVAL_SECONDS in your exporter
+    scrape_interval: 30s

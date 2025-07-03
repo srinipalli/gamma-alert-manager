@@ -1,0 +1,57 @@
+# alert_rules.yml
+groups:
+
+  - name: server_alerts
+    rules:
+      # --- ML Detected Anomaly Alerts ---
+      # This alert fires if an ML-detected anomaly is active for a server.
+      - alert: MLAnomalyDetected
+        expr: ml_server_anomaly_active == 1
+        for: 0m # Alerts immediately when an active ML anomaly is detected
+        labels:
+          severity: critical
+          alert_type: ml_anomaly
+        annotations:
+          summary: "ML Anomaly Detected on {{ $labels.server_name }} ({{ $labels.environment | title }})" # Uses environment
+          description: "An Isolation Forest ML model has detected an active anomaly on server {{ $labels.server_name }} (Environment: {{ $labels.environment | title }})." # Uses environment
+
+      # --- Server Log Threshold Alerts ---
+      
+      - alert: HighCPUUsage
+        expr: server_cpu_usage_percent{job="mongo_exporter"} > 85 # Checks if CPU usage exceeds 85%
+        labels:
+          severity: warning
+          alert_type: threshold_check
+        annotations:
+          summary: "High CPU Usage on {{ $labels.server_name }} ({{ $labels.environment | title }})" # Uses environment
+          description: "CPU usage on {{ $labels.server_name }} (Environment: {{ $labels.environment | title }}) has been {{ $value }}% for over 2 minutes. Consider investigating." # Uses environment
+
+      - alert: CriticalMemoryUsage
+        expr: server_memory_usage_percent{job="mongo_exporter"} > 90 # Checks if Memory usage exceeds 90%
+        for: 2m
+        labels:
+          severity: critical
+          alert_type: threshold_check
+        annotations:
+          summary: "CRITICAL: High Memory Usage on {{ $labels.server_name }} ({{ $labels.environment | title }})" # Uses environment
+          description: "Memory usage on {{ $labels.server_name }} (Environment: {{ $labels.environment | title }}) has been {{ $value }}% for over 2 minutes. Immediate action may be required." # Uses environment
+
+      - alert: HighDiskUtilization
+        expr: server_disk_utilization_percent{job="mongo_exporter"} > 80 # Checks if Disk utilization exceeds 80%
+        for: 5m
+        labels:
+          severity: warning
+          alert_type: threshold_check
+        annotations:
+          summary: "High Disk Utilization on {{ $labels.server_name }} ({{ $labels.environment | title }})" # Uses environment
+          description: "Disk utilization on {{ $labels.server_name }} (Environment: {{ $labels.environment | title }}) has been {{ $value }}% for over 5 minutes." # Uses environment
+          
+      - alert: ServerStatusBad
+        expr: server_status_code{job="mongo_exporter"} == 0 # Checks if server status is 'Bad' (0)
+        for: 1m
+        labels:
+          severity: critical
+          alert_type: threshold_check
+        annotations:
+          summary: "CRITICAL: Server Status is Bad on {{ $labels.server_name }} ({{ $labels.environment | title }})" # Uses environment
+          description: "Server {{ $labels.server_name }} (Environment: {{ $labels.environment | title }}) is reporting a 'Bad' status." # Uses environment
