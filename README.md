@@ -1,4 +1,4 @@
-Alerting - https://github.com/srinipalli/gamma-alert-manager
+Alerting
 1.	Prometheus(3.4.1) https://prometheus.io/download/
 •	Add another alert.rules.yml file and copy the script from github
 •	Change the Prometheus YML file in the folder to script available in the github
